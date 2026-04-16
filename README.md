@@ -10,9 +10,9 @@ This package lets an ompgo gamemode create dynamic objects, pickups, checkpoints
 go get github.com/ompgo-dev/ompgo-streamer
 ```
 
-## Basic usage
+## Runtime bootstrap
 
-Create one streamer instance when your gamemode loads, call `Start`, and then create dynamic items through that instance.
+Register the streamer by passing `streamer.WithStreamer(...)` to `runtime.Bootstrap(...)`. This creates one runtime-managed streamer instance and stops it automatically during component shutdown.
 
 ```go
 package main
@@ -32,8 +32,7 @@ type GameMode struct {
 }
 
 func (gm *GameMode) OnLoad(ctx context.Context) error {
-	gm.streamer = streamer.New()
-	gm.streamer.Start()
+	gm.streamer = streamer.GetStreamer()
 
 	_, err := gm.streamer.CreateObject(streamer.CreateObjectParams{
 		ModelID:        19379,
@@ -68,14 +67,35 @@ func init() {
 	runtime.Bootstrap(
 		runtime.WithComponentName("ompgo_streamer_example"),
 		runtime.WithGamemode(NewGamemode),
+		streamer.WithStreamer(
+			streamer.WithTickRate(50),
+		),
 	)
 }
 
 func main() {}
 ```
 
+Use `streamer.GetStreamer()` from `OnLoad` or later. It returns the runtime-managed streamer after bootstrap setup has run.
+
+## Manual setup
+
+Manual setup still works if you want to own the streamer instance yourself instead of using the runtime-managed one.
+
+```go
+func (gm *GameMode) OnLoad(ctx context.Context) error {
+	gm.streamer = streamer.New()
+	gm.streamer.Start()
+	return nil
+}
+```
+
+If you use the manual path, keep a reference to that instance yourself and call `Stop()` during shutdown.
+
 ## Notes
 
-- Call `Start()` once after creating the streamer.
+- Use `streamer.WithStreamer(...)` inside `runtime.Bootstrap(...)` when you want the runtime to create and clean up the streamer for you.
+- Access the runtime-managed instance with `streamer.GetStreamer()` from `OnLoad` or later.
+- Call `Start()` once after creating the streamer yourself when using the manual setup path.
 - Create dynamic entities with methods like `CreateObject`, `CreatePickup`, `CreateTextLabel`, and `CreateActor`.
-- If your gamemode has a shutdown hook, call `Stop()` to unregister the streamer's event handlers.
+- If your gamemode manages the streamer manually, call `Stop()` in your shutdown path to unregister the streamer's event handlers.
